@@ -8,7 +8,7 @@ import numpy as np
 
 from baselines.common.vec_env.vec_video_recorder import VecVideoRecorder
 from baselines.common.vec_env.vec_frame_stack import VecFrameStack
-from baselines.common.cmd_util import common_arg_parser, parse_unknown_args, make_vec_env, make_env
+from baselines.common.cmd_util import common_arg_parser, parse_unknown_args, make_vec_env, make_env, make_blocks_env, make_blocks_vec_env
 from baselines.common.tf_util import get_session
 from baselines import logger
 from importlib import import_module
@@ -49,7 +49,6 @@ _game_envs['retro'] = {
     'FinalFight-Snes',
     'SpaceInvaders-Snes',
 }
-
 
 def train(args, extra_args):
     env_type, env_id = get_env_type(args.env)
@@ -93,6 +92,8 @@ def build_env(args):
 
     env_type, env_id = get_env_type(args.env)
 
+    print(env_type, env_id)
+
     if env_type in {'atari', 'retro'}:
         if alg == 'deepq':
             env = make_env(env_id, env_type, seed=seed, wrapper_kwargs={'frame_stack': True})
@@ -102,6 +103,14 @@ def build_env(args):
             frame_stack_size = 4
             env = make_vec_env(env_id, env_type, nenv, seed, gamestate=args.gamestate, reward_scale=args.reward_scale)
             env = VecFrameStack(env, frame_stack_size)
+
+    elif env_type == 'envs':
+        if alg == 'deepq':
+            env = make_blocks_env(env_id, seed)
+        elif alg == 'trpo_mpi':
+            env = make_blocks_env(env_id, seed)
+        else:
+            env = make_blocks_vec_env(env_id, env_type, nenv, seed, gamestate=args.gamestate, reward_scale=args.reward_scale)
 
     else:
        config = tf.ConfigProto(allow_soft_placement=True,
@@ -194,6 +203,14 @@ def main():
     else:
         logger.configure(format_strs=[])
         rank = MPI.COMM_WORLD.Get_rank()
+
+    #Namespace(alg='ppo2', env='PongNoFrameskip-v4', gamestate=None, network=None, num_env=None, num_timesteps=1000000.0, play=False, reward_scale=1.0, save_path=None, save_video_interval=0, save_video_length=200, seed=None)
+    #[]
+    #{}
+
+    #print(args)
+    #print(unknown_args)
+    #print(extra_args)
 
     model, env = train(args, extra_args)
     env.close()

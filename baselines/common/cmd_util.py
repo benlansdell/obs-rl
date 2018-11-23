@@ -18,6 +18,8 @@ from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from baselines.common import retro_wrappers
 
+import gym_minigrid
+
 def make_vec_env(env_id, env_type, num_env, seed, wrapper_kwargs=None, start_index=0, reward_scale=1.0, gamestate=None):
     """
     Create a wrapped, monitored SubprocVecEnv for Atari and MuJoCo.
@@ -99,6 +101,48 @@ def make_robotics_env(env_id, seed, rank=0):
     env.seed(seed)
     return env
 
+def make_blocks_env(env_id, seed, rank=0):
+    """
+    Create a wrapped, monitored gym.Env for MuJoCo.
+    """
+    print("HI")
+    set_global_seeds(seed)
+    env = gym.make(env_id)
+    env = gym_minigrid.wrappers.ImgObsWrapper(env)
+    #env = gym_minigrid.wrappers.VectorWrapper(env)
+    #env = FlattenDictWrapper(env, ['image'])
+    #env = DummyVecEnv([env])
+    env = Monitor(
+        env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)),
+        info_keywords=())
+    env.seed(seed)
+    #env.num_envs = 1
+    return env
+
+def make_blocks_vec_env(env_id, env_type, num_env, seed, wrapper_kwargs=None, start_index=0, reward_scale=1.0, gamestate=None):
+    """
+    Create a wrapped, monitored SubprocVecEnv for Atari and MuJoCo.
+    """
+    if wrapper_kwargs is None: wrapper_kwargs = {}
+    mpi_rank = MPI.COMM_WORLD.Get_rank() if MPI else 0
+    seed = seed + 10000 * mpi_rank if seed is not None else None
+    def make_thunk(rank):
+        return lambda: gym_minigrid.wrappers.ImgObsWrapper(make_env(
+            env_id=env_id,
+            env_type=env_type,
+            subrank = rank,
+            seed=seed,
+            reward_scale=reward_scale,
+            gamestate=gamestate,
+            wrapper_kwargs=wrapper_kwargs
+        ))
+
+    set_global_seeds(seed)
+    if num_env > 1:
+        return SubprocVecEnv([make_thunk(i + start_index) for i in range(num_env)])
+    else:
+        return DummyVecEnv([make_thunk(start_index)])
+
 def arg_parser():
     """
     Create an empty argparse.ArgumentParser.
@@ -122,7 +166,8 @@ def common_arg_parser():
     Create an argparse.ArgumentParser for run_mujoco.py.
     """
     parser = arg_parser()
-    parser.add_argument('--env', help='environment ID', type=str, default='Reacher-v2')
+    #parser.add_argument('--env', help='environment ID', type=str, default='Reacher-v2')
+    parser.add_argument('--env', help='environment ID', type=str, default='PongNoFrameskip-v4')
     parser.add_argument('--seed', help='RNG seed', type=int, default=None)
     parser.add_argument('--alg', help='Algorithm', type=str, default='ppo2')
     parser.add_argument('--num_timesteps', type=float, default=1e6),
