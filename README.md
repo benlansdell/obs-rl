@@ -2,6 +2,10 @@
 
 <img src="data/logo.jpg" width=25% align="right" /> [![Build status](https://travis-ci.org/openai/baselines.svg?branch=master)](https://travis-ci.org/openai/baselines)
 
+# Observational causal learning in RL
+
+Learning from observation. 
+
 # Baselines
 
 OpenAI Baselines is a set of high-quality implementations of reinforcement learning algorithms.
